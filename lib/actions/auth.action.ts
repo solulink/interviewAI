@@ -1,10 +1,10 @@
 "use server";
 
-import { auth, db } from "@/firebase/admin";
+import { auth, db } from "../../firebase/admin";
 import { cookies } from "next/headers";
 
 // Session duration (1 week)
-const SESSION_DURATION = 60 * 60 * 24 * 7;
+const ONE_WEEK = 60 * 60 * 24 * 7 * 1000;// milliseconds
 
 // Set session cookie
 export async function setSessionCookie(idToken: string) {
@@ -12,12 +12,12 @@ export async function setSessionCookie(idToken: string) {
 
   // Create session cookie
   const sessionCookie = await auth.createSessionCookie(idToken, {
-    expiresIn: SESSION_DURATION * 1000, // milliseconds
+    expiresIn: ONE_WEEK, // milliseconds
   });
 
   // Set cookie in the browser
   cookieStore.set("session", sessionCookie, {
-    maxAge: SESSION_DURATION,
+    maxAge: ONE_WEEK,
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     path: "/",
@@ -51,7 +51,6 @@ export async function signUp(params: SignUpParams) {
     };
   } catch (error: any) {
     console.error("Error creating user:", error);
-
     // Handle Firebase specific errors
     if (error.code === "auth/email-already-exists") {
       return {
@@ -80,7 +79,7 @@ export async function signIn(params: SignInParams) {
 
     await setSessionCookie(idToken);
   } catch (error: any) {
-    console.log("");
+    console.log("Failed to login.  Please try again");
 
     return {
       success: false,
@@ -104,22 +103,21 @@ export async function getCurrentUser(): Promise<User | null> {
   if (!sessionCookie) return null;
 
   try {
+    
     const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
-
     // get user info from db
     const userRecord = await db
       .collection("users")
       .doc(decodedClaims.uid)
       .get();
     if (!userRecord.exists) return null;
-
-    return {
-      ...userRecord.data(),
-      id: userRecord.id,
-    } as User;
-  } catch (error) {
+    else {
+      return {
+        ...userRecord.data(),
+        id: userRecord.id,
+      } as User;
+  }} catch (error) {
     console.log(error);
-
     // Invalid or expired session
     return null;
   }
@@ -128,5 +126,5 @@ export async function getCurrentUser(): Promise<User | null> {
 // Check if user is authenticated
 export async function isAuthenticated() {
   const user = await getCurrentUser();
-  return !!user;
+  return !!user; //if object exist then !object will return false test !false then user exist.
 }
